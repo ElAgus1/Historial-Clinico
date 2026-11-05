@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Historial Clínico
 
-## Getting Started
+Aplicación Next.js para gestionar pacientes y sus sesiones clínicas.
 
-First, run the development server:
+## Configuración local
+
+1. Instala las dependencias:
+
+   ```bash
+   npm install
+   ```
+
+2. Copia `.env.example` como `.env.local` y completa los valores de tu proyecto
+   de Supabase:
+
+   - `DATABASE_URL`: cadena **Transaction pooler** de Supabase, con
+     `pgbouncer=true`.
+   - `DIRECT_URL`: cadena **Direct connection** de Supabase. Se usa para
+     `prisma db push` y migraciones.
+   - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`: valores de
+     `Settings > API`. Actualmente quedan preparados para Auth, Storage y
+     Realtime.
+
+3. Genera el cliente y sincroniza el esquema con la base PostgreSQL de
+   Supabase:
+
+   ```bash
+   npx prisma generate
+   npm run db:push
+   ```
+
+4. En Supabase, abrí **Authentication > Users > Add user** y crea el usuario
+   profesional que vas a usar para ingresar. Luego ejecutá el contenido de
+   [`supabase/rls.sql`](./supabase/rls.sql) desde **SQL Editor**.
+
+   RLS debe ejecutarse después de `db push`, porque Prisma crea las tablas y la
+   política agrega el aislamiento por usuario. La aplicación también valida la
+   sesión y `userId` en cada acción del servidor.
+
+   Si ya existían pacientes antes de activar autenticación, `userId` queda
+   temporalmente vacío para no borrar datos. Asociá esos registros desde SQL
+   reemplazando `USER_UUID` por el UUID del usuario creado:
+
+   ```sql
+   UPDATE "Paciente"
+   SET "userId" = 'USER_UUID'
+   WHERE "userId" IS NULL;
+   ```
+
+5. Inicia el proyecto:
+
+   ```bash
+   npm run dev
+   ```
+
+La aplicación se sirve en [http://localhost:3000](http://localhost:3000) y
+redirige `/` a `/pacientes`.
+
+El proyecto usa exclusivamente PostgreSQL mediante Prisma. El archivo local
+`prisma/dev.db` no participa en el desarrollo ni en producción. Cada paciente
+queda asociado al usuario que lo creó y cada sesión queda protegida por ese
+paciente.
+
+## Comandos útiles
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build       # Comprueba el build de producción
+npm run db:studio   # Abre Prisma Studio contra Supabase
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
