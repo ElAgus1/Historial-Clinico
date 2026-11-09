@@ -19,7 +19,6 @@ export default function NuevoPacientePage() {
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors },
   } = useForm<PacienteFormData>({
     resolver: zodResolver(pacienteSchema),

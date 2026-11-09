@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, FileText, Calendar, ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, Calendar, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { agregarSesion } from '@/app/actions';
 import { sesionSchema, type SesionFormData } from '@/lib/schemas';
@@ -43,7 +43,6 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
     register,
     handleSubmit,
     reset,
-    watch,
     formState: { errors },
   } = useForm<SesionFormData>({
     resolver: zodResolver(sesionSchema),

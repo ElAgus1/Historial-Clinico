@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { getAuthenticatedUser } from '@/lib/supabase/auth';
+import AuthStateListener from './auth-state-listener';
 
 export const metadata: Metadata = {
   title: 'Historial Clínico',
@@ -19,26 +20,27 @@ export default function RootLayout({
   const userPromise = getAuthenticatedUser();
   return (
     <html lang="es">
-      <body>
-        <AuthHeader userPromise={userPromise} />
+      <body className="min-h-screen flex flex-col">
+        <AuthStateListener />
         {children}
+        <AuthFooter userPromise={userPromise} />
       </body>
     </html>
   );
 }
 
-async function AuthHeader({ userPromise }: { userPromise: ReturnType<typeof getAuthenticatedUser> }) {
+async function AuthFooter({ userPromise }: { userPromise: ReturnType<typeof getAuthenticatedUser> }) {
   const user = await userPromise;
   if (!user) return null;
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+    <footer className="mt-auto flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
       <span className="text-sm text-slate-600">{user.email}</span>
       <form action="/logout" method="post">
         <button type="submit" className="text-sm font-medium text-teal-700 hover:text-teal-900">
           Cerrar sesión
         </button>
       </form>
-    </header>
+    </footer>
   );
 }
