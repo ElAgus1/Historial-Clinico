@@ -1,7 +1,10 @@
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Search, Filter, Users, Phone, FileText, Calendar, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { obtenerPacientes } from '@/app/actions';
+import { getAuthenticatedUser } from '@/lib/supabase/auth';
+import RetryButton from './retry-button';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -23,12 +26,7 @@ function PacientesList({ initialData }: PacientesListProps) {
           </div>
           <h3 className="text-lg font-medium text-text-primary mb-2">Error al cargar pacientes</h3>
           <p className="text-text-secondary mb-6">{result.error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-primary"
-          >
-            Reintentar
-          </button>
+          <RetryButton />
         </div>
       </div>
     );
@@ -75,7 +73,7 @@ function PacientesList({ initialData }: PacientesListProps) {
       {pacientes.map((paciente) => (
         <article
           key={paciente.id}
-          className="card-interactive group relative overflow-hidden"
+          className="card card-interactive group relative overflow-hidden"
           role="listitem"
           aria-labelledby={`patient-name-${paciente.id}`}
         >
@@ -169,8 +167,19 @@ function SkeletonGrid() {
   );
 }
 
-export default async function PacientesPage() {
-  const result = await obtenerPacientes();
+export default async function PacientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const { estado } = await searchParams;
+  const status = estado === 'archived' || estado === 'all' ? estado : 'active';
+  const result = await obtenerPacientes(status);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -204,15 +213,23 @@ export default async function PacientesPage() {
               aria-label="Buscar paciente"
             />
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" aria-hidden="true" />
-            <select className="input pl-10 pr-8 appearance-none" aria-label="Filtrar pacientes">
-              <option value="all">Todos</option>
-              <option value="upcoming">Con próximas citas</option>
-              <option value="no-sessions">Sin sesiones</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" aria-hidden="true" />
-          </div>
+          <form method="get" className="flex items-center gap-2">
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" aria-hidden="true" />
+              <select
+                name="estado"
+                defaultValue={status}
+                className="input pl-10 pr-8 appearance-none"
+                aria-label="Filtrar pacientes"
+              >
+                <option value="active">Activos</option>
+                <option value="archived">Archivados</option>
+                <option value="all">Todos</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" aria-hidden="true" />
+            </div>
+            <button type="submit" className="btn-secondary btn-sm whitespace-nowrap">Aplicar</button>
+          </form>
         </div>
       </header>
 

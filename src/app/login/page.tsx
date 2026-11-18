@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get('expired') === '1';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -79,7 +81,7 @@ export default function LoginPage() {
             <p className="text-text-secondary mt-1">Accedé a tus pacientes</p>
           </header>
 
-          {error && (
+          {(error || sessionExpired) && (
             <div
               className="mb-6 p-4 rounded-xl bg-error-bg text-error-text border border-error-border flex items-start gap-3"
               role="alert"
@@ -90,7 +92,7 @@ export default function LoginPage() {
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              <p>{error}</p>
+              <p>{error || 'La sesión expiró. Iniciá sesión nuevamente.'}</p>
             </div>
           )}
 
@@ -177,6 +179,13 @@ export default function LoginPage() {
             {loading && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
+
+          <p className="mt-6 text-center text-sm text-text-secondary">
+            ¿Todavía no tenés una cuenta?{' '}
+            <a href="/signup" className="font-medium text-brand-600 hover:text-brand-700 underline underline-offset-2 transition-colors">
+              Crear una cuenta
+            </a>
+          </p>
 
           <p className="mt-6 text-center text-sm text-text-muted">
             <a href="/auth/reset-password" className="text-brand-600 hover:text-brand-700 underline underline-offset-2 transition-colors">

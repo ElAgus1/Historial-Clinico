@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -16,24 +16,43 @@ model Paciente {
   fechaNacimiento DateTime
   telefono        String?
   motivoConsulta  String?
+  instagram       String?
+  nombrePadre     String?
+  nombreMadre     String?
+  pareja          String?
+  sexo            String?
+  archivado       Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   sesiones        Sesion[]
+  citas           Cita[]
 
   @@index([nombreCompleto])
   @@index([createdAt])
   @@index([userId])
+  @@index([userId, archivado])
 }
 
 model Sesion {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   pacienteId    String
-  fechaSesion   DateTime  @default(now())
+  fechaSesion   DateTime @default(now())
   notasClinicas String
-  proximaCita   DateTime?
-  createdAt     DateTime  @default(now())
-  paciente      Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  paciente      Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
 
   @@index([pacienteId])
   @@index([fechaSesion])
+}
+
+model Cita {
+  id         String   @id @default(uuid())
+  pacienteId String
+  fechaCita  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  paciente   Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@index([pacienteId])
+  @@index([fechaCita])
 }

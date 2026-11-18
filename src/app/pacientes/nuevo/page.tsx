@@ -27,6 +27,11 @@ export default function NuevoPacientePage() {
       fechaNacimiento: '',
       telefono: '',
       motivoConsulta: '',
+      instagram: '',
+      nombrePadre: '',
+      nombreMadre: '',
+      pareja: '',
+      sexo: '',
     },
   });
 
@@ -81,6 +86,12 @@ export default function NuevoPacientePage() {
       router.push(`/pacientes/${result.data.id}`);
       router.refresh();
     } else {
+      if (result.error === 'Sesión expirada. Inicie sesión nuevamente.') {
+        router.replace('/login?expired=1');
+        router.refresh();
+        setIsSubmitting(false);
+        return;
+      }
       setServerError(result.error || 'No se pudo crear el paciente');
       if (result.fieldErrors) {
         const newErrors: Record<string, string> = {};
@@ -213,6 +224,43 @@ export default function NuevoPacientePage() {
               </div>
 
               <div className="form-group">
+                <label htmlFor="sexo" className="label">Sexo</label>
+                <select {...register('sexo')} id="sexo" className="input" disabled={isSubmitting}>
+                  <option value="">Sin especificar</option>
+                  <option value="Femenino">Femenino</option>
+                  <option value="Masculino">Masculino</option>
+                  <option value="Otro">Otro</option>
+                  <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label htmlFor="instagram" className="label">Instagram</label>
+                  <input {...register('instagram')} id="instagram" type="text" placeholder="@usuario" className="input" disabled={isSubmitting} />
+                  <p className="field-hint">Opcional</p>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="pareja" className="label">Pareja</label>
+                  <input {...register('pareja')} id="pareja" type="text" placeholder="Nombre de la pareja" className="input" disabled={isSubmitting} />
+                  <p className="field-hint">Opcional</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label htmlFor="nombrePadre" className="label">Nombre del padre</label>
+                  <input {...register('nombrePadre')} id="nombrePadre" type="text" placeholder="Nombre del padre" className="input" disabled={isSubmitting} />
+                  <p className="field-hint">Opcional</p>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="nombreMadre" className="label">Nombre de la madre</label>
+                  <input {...register('nombreMadre')} id="nombreMadre" type="text" placeholder="Nombre de la madre" className="input" disabled={isSubmitting} />
+                  <p className="field-hint">Opcional</p>
+                </div>
+              </div>
+
+              <div className="form-group">
                 <label htmlFor="motivoConsulta" className="label flex items-center gap-2">
                   <FileText className="h-4 w-4 text-text-muted" aria-hidden="true" />
                   Motivo de consulta
@@ -259,11 +307,11 @@ export default function NuevoPacientePage() {
         </div>
       </div>
 
-      <footer className="border-t border-border-subtle bg-bg-secondary px-4 py-4">
-        <p className="max-w-2xl mx-auto text-center text-sm text-text-muted">
-          Los datos se almacenan de forma segura y cumplen con la normativa de protección de datos médicos.
-        </p>
-      </footer>
+        <footer className="border-t border-border-subtle bg-bg-secondary px-4 py-4">
+          <p className="max-w-2xl mx-auto text-center text-sm text-text-muted">
+            Toda la información se maneja con estándares de seguridad y privacidad.
+          </p>
+        </footer>
     </main>
   );
 }

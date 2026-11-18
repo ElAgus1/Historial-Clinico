@@ -37,7 +37,7 @@ async function AuthFooter({ userPromise }: { userPromise: ReturnType<typeof getA
     <footer className="mt-auto flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
       <span className="text-sm text-slate-600">{user.email}</span>
       <form action="/logout" method="post">
-        <button type="submit" className="text-sm font-medium text-teal-700 hover:text-teal-900">
+        <button type="submit" className="text-sm font-medium text-brand-600 hover:text-brand-700">
           Cerrar sesión
         </button>
       </form>

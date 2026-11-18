@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/supabase/auth';
-import { pacienteSchema, sesionSchema, type PacienteFormData, type SesionFormData } from '@/lib/schemas';
+import { citaSchema, pacienteSchema, sesionSchema, type CitaFormData, type PacienteFormData, type SesionFormData } from '@/lib/schemas';
 
 type ActionResult<T> =
   | { success: true; data: T }
@@ -41,6 +41,11 @@ export async function crearPaciente(formData: PacienteFormData): Promise<ActionR
         fechaNacimiento: new Date(validated.data.fechaNacimiento),
         telefono: validated.data.telefono?.trim() || null,
         motivoConsulta: validated.data.motivoConsulta?.trim() || null,
+        instagram: validated.data.instagram?.trim() || null,
+        nombrePadre: validated.data.nombrePadre?.trim() || null,
+        nombreMadre: validated.data.nombreMadre?.trim() || null,
+        pareja: validated.data.pareja?.trim() || null,
+        sexo: validated.data.sexo?.trim() || null,
       },
       select: { id: true },
     });
@@ -53,12 +58,50 @@ export async function crearPaciente(formData: PacienteFormData): Promise<ActionR
   }
 }
 
-export async function obtenerPacientes(): Promise<ActionResult<Array<{
+export async function actualizarPaciente(formData: PacienteFormData & { id: string }): Promise<ActionResult<null>> {
+  const validated = pacienteSchema.extend({ id: z.string().uuid('ID de paciente inválido') }).safeParse(formData);
+  if (!validated.success) return { success: false, ...handleZodError(validated.error) };
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const paciente = await prisma.paciente.findFirst({
+      where: { id: validated.data.id, userId: user.id },
+      select: { id: true },
+    });
+    if (!paciente) return { success: false, error: 'Paciente no encontrado.' };
+
+    await prisma.paciente.update({
+      where: { id: paciente.id },
+      data: {
+        nombreCompleto: validated.data.nombreCompleto.trim(),
+        fechaNacimiento: new Date(validated.data.fechaNacimiento),
+        telefono: validated.data.telefono?.trim() || null,
+        motivoConsulta: validated.data.motivoConsulta?.trim() || null,
+        instagram: validated.data.instagram?.trim() || null,
+        nombrePadre: validated.data.nombrePadre?.trim() || null,
+        nombreMadre: validated.data.nombreMadre?.trim() || null,
+        pareja: validated.data.pareja?.trim() || null,
+        sexo: validated.data.sexo?.trim() || null,
+      },
+    });
+    revalidatePath('/pacientes');
+    revalidatePath(`/pacientes/${paciente.id}`);
+    return { success: true, data: null };
+  } catch (err) {
+    console.error('Error al actualizar paciente:', err);
+    return { success: false, error: 'No se pudo actualizar el paciente. Intente nuevamente.' };
+  }
+}
+
+export async function obtenerPacientes(status: 'active' | 'archived' | 'all' = 'active'): Promise<ActionResult<Array<{
   id: string;
   nombreCompleto: string;
   fechaNacimiento: Date;
   telefono: string | null;
   motivoConsulta: string | null;
+  archivado: boolean;
   createdAt: Date;
   _count: { sesiones: number };
 }>>> {
@@ -67,7 +110,11 @@ export async function obtenerPacientes(): Promise<ActionResult<Array<{
 
   try {
     const pacientes = await prisma.paciente.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        ...(status === 'active' ? { archivado: false } : {}),
+        ...(status === 'archived' ? { archivado: true } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -75,6 +122,7 @@ export async function obtenerPacientes(): Promise<ActionResult<Array<{
         fechaNacimiento: true,
         telefono: true,
         motivoConsulta: true,
+        archivado: true,
         createdAt: true,
         _count: { select: { sesiones: true } },
       },
@@ -84,6 +132,37 @@ export async function obtenerPacientes(): Promise<ActionResult<Array<{
     console.error('Error al obtener pacientes:', err);
     return { success: false, error: 'No se pudieron cargar los pacientes.' };
   }
+
+}
+
+export async function archivarPaciente(id: string): Promise<ActionResult<null>> {
+  if (!z.string().uuid().safeParse(id).success) {
+    return { success: false, error: 'ID de paciente inválido.' };
+  }
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const paciente = await prisma.paciente.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true },
+    });
+
+    if (!paciente) return { success: false, error: 'Paciente no encontrado.' };
+
+    await prisma.paciente.update({
+      where: { id: paciente.id },
+      data: { archivado: true },
+    });
+
+    revalidatePath('/pacientes');
+    revalidatePath(`/pacientes/${id}`);
+    return { success: true, data: null };
+  } catch (err) {
+    console.error('Error al archivar paciente:', err);
+    return { success: false, error: 'No se pudo archivar el paciente. Intente nuevamente.' };
+  }
 }
 
 export async function obtenerPacientePorId(id: string): Promise<ActionResult<{
@@ -92,12 +171,21 @@ export async function obtenerPacientePorId(id: string): Promise<ActionResult<{
   fechaNacimiento: Date;
   telefono: string | null;
   motivoConsulta: string | null;
+  instagram: string | null;
+  nombrePadre: string | null;
+  nombreMadre: string | null;
+  pareja: string | null;
+  sexo: string | null;
   createdAt: Date;
   sesiones: Array<{
     id: string;
     fechaSesion: Date;
     notasClinicas: string;
-    proximaCita: Date | null;
+    createdAt: Date;
+  }>;
+  citas: Array<{
+    id: string;
+    fechaCita: Date;
     createdAt: Date;
   }>;
 }>> {
@@ -117,6 +205,11 @@ export async function obtenerPacientePorId(id: string): Promise<ActionResult<{
         fechaNacimiento: true,
         telefono: true,
         motivoConsulta: true,
+        instagram: true,
+        nombrePadre: true,
+        nombreMadre: true,
+        pareja: true,
+        sexo: true,
         createdAt: true,
         sesiones: {
           orderBy: { fechaSesion: 'desc' },
@@ -124,7 +217,14 @@ export async function obtenerPacientePorId(id: string): Promise<ActionResult<{
             id: true,
             fechaSesion: true,
             notasClinicas: true,
-            proximaCita: true,
+            createdAt: true,
+          },
+        },
+        citas: {
+          orderBy: { fechaCita: 'asc' },
+          select: {
+            id: true,
+            fechaCita: true,
             createdAt: true,
           },
         },
@@ -166,7 +266,6 @@ export async function agregarSesion(formData: SesionFormData): Promise<ActionRes
         pacienteId: validated.data.pacienteId,
         fechaSesion: new Date(validated.data.fechaSesion),
         notasClinicas: validated.data.notasClinicas.trim(),
-        proximaCita: validated.data.proximaCita ? new Date(validated.data.proximaCita) : null,
       },
       select: { id: true },
     });
@@ -177,5 +276,140 @@ export async function agregarSesion(formData: SesionFormData): Promise<ActionRes
   } catch (err) {
     console.error('Error al agregar sesión:', err);
     return { success: false, error: 'No se pudo guardar la sesión. Intente nuevamente.' };
+  }
+}
+
+export async function actualizarSesion(formData: SesionFormData & { id: string }): Promise<ActionResult<null>> {
+  const validated = sesionSchema.extend({ id: z.string().uuid('ID de sesión inválido') }).safeParse(formData);
+  if (!validated.success) return { success: false, ...handleZodError(validated.error) };
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const sesion = await prisma.sesion.findFirst({
+      where: { id: validated.data.id, paciente: { userId: user.id } },
+      select: { id: true, pacienteId: true },
+    });
+    if (!sesion) return { success: false, error: 'Sesión no encontrada.' };
+
+    await prisma.sesion.update({
+      where: { id: sesion.id },
+      data: {
+        fechaSesion: new Date(validated.data.fechaSesion),
+        notasClinicas: validated.data.notasClinicas.trim(),
+      },
+    });
+
+    revalidatePath(`/pacientes/${sesion.pacienteId}`);
+    revalidatePath('/pacientes');
+    return { success: true, data: null };
+  } catch (err) {
+    console.error('Error al actualizar sesión:', err);
+    return { success: false, error: 'No se pudo actualizar la sesión. Intente nuevamente.' };
+  }
+}
+
+export async function agregarCita(formData: CitaFormData): Promise<ActionResult<{ id: string }>> {
+  const validated = citaSchema.safeParse(formData);
+  if (!validated.success) return { success: false, ...handleZodError(validated.error) };
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const paciente = await prisma.paciente.findUnique({
+      where: { id: validated.data.pacienteId, userId: user.id },
+      select: { id: true },
+    });
+    if (!paciente) return { success: false, error: 'Paciente no encontrado.' };
+
+    const cita = await prisma.cita.create({
+      data: {
+        pacienteId: paciente.id,
+        fechaCita: new Date(validated.data.fechaCita),
+      },
+      select: { id: true },
+    });
+    revalidatePath(`/pacientes/${paciente.id}`);
+    return { success: true, data: { id: cita.id } };
+  } catch (err) {
+    console.error('Error al agregar cita:', err);
+    return { success: false, error: 'No se pudo agregar la cita. Intente nuevamente.' };
+  }
+}
+
+export async function actualizarCita(formData: CitaFormData & { id: string }): Promise<ActionResult<null>> {
+  const validated = citaSchema.extend({ id: z.string().uuid('ID de cita inválido') }).safeParse(formData);
+  if (!validated.success) return { success: false, ...handleZodError(validated.error) };
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const cita = await prisma.cita.findFirst({
+      where: { id: validated.data.id, paciente: { userId: user.id } },
+      select: { id: true, pacienteId: true },
+    });
+    if (!cita) return { success: false, error: 'Cita no encontrada.' };
+
+    await prisma.cita.update({
+      where: { id: cita.id },
+      data: { fechaCita: new Date(validated.data.fechaCita) },
+    });
+    revalidatePath(`/pacientes/${cita.pacienteId}`);
+    return { success: true, data: null };
+  } catch (err) {
+    console.error('Error al actualizar cita:', err);
+    return { success: false, error: 'No se pudo actualizar la cita. Intente nuevamente.' };
+  }
+}
+
+export async function eliminarCita(id: string): Promise<ActionResult<null>> {
+  if (!z.string().uuid().safeParse(id).success) {
+    return { success: false, error: 'ID de cita inválido.' };
+  }
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const cita = await prisma.cita.findFirst({
+      where: { id, paciente: { userId: user.id } },
+      select: { id: true, pacienteId: true },
+    });
+    if (!cita) return { success: false, error: 'Cita no encontrada.' };
+
+    await prisma.cita.delete({ where: { id: cita.id } });
+    revalidatePath(`/pacientes/${cita.pacienteId}`);
+    return { success: true, data: null };
+  } catch (err) {
+    console.error('Error al eliminar cita:', err);
+    return { success: false, error: 'No se pudo eliminar la cita. Intente nuevamente.' };
+  }
+}
+
+export async function eliminarSesion(id: string): Promise<ActionResult<null>> {
+  if (!z.string().uuid().safeParse(id).success) {
+    return { success: false, error: 'ID de sesión inválido.' };
+  }
+
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+  try {
+    const sesion = await prisma.sesion.findFirst({
+      where: { id, paciente: { userId: user.id } },
+      select: { id: true, pacienteId: true },
+    });
+    if (!sesion) return { success: false, error: 'Sesión no encontrada.' };
+
+    await prisma.sesion.delete({ where: { id: sesion.id } });
+    revalidatePath(`/pacientes/${sesion.pacienteId}`);
+    revalidatePath('/pacientes');
+    return { success: true, data: null };
+  } catch (err) {
+    console.error('Error al eliminar sesión:', err);
+    return { success: false, error: 'No se pudo eliminar la sesión. Intente nuevamente.' };
   }
 }

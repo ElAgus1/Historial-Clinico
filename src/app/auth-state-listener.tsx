@@ -12,8 +12,14 @@ export default function AuthStateListener() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const sessionExpired = event === 'SIGNED_OUT' || (event === 'INITIAL_SESSION' && !session);
 
-      if (sessionExpired && pathname !== '/login') {
-        router.replace('/login');
+      const isPublicAuthPage =
+        pathname === '/login' ||
+        pathname === '/signup' ||
+        pathname === '/auth/reset-password' ||
+        pathname === '/auth/update-password';
+
+      if (sessionExpired && !isPublicAuthPage) {
+        router.replace('/login?expired=1');
         router.refresh();
       }
     });

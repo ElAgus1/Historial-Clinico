@@ -22,15 +22,22 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isLoginPage = request.nextUrl.pathname === '/login';
+  const isPublicPage =
+    request.nextUrl.pathname === '/login' ||
+    request.nextUrl.pathname === '/signup' ||
+    request.nextUrl.pathname === '/auth/callback' ||
+    request.nextUrl.pathname === '/auth/reset-password' ||
+    request.nextUrl.pathname === '/auth/update-password';
 
-  if (!user && !isLoginPage) {
+  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.search = '';
+    url.searchParams.set('expired', '1');
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginPage) {
+  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
     return NextResponse.redirect(new URL('/pacientes', request.url));
   }
 

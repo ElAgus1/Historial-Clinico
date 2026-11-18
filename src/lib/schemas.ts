@@ -27,6 +27,31 @@ export const pacienteSchema = z.object({
     .max(1000, 'El motivo de consulta no puede exceder 1000 caracteres')
     .optional()
     .or(z.literal('')),
+  instagram: z
+    .string()
+    .max(100, 'El Instagram no puede exceder 100 caracteres')
+    .optional()
+    .or(z.literal('')),
+  nombrePadre: z
+    .string()
+    .max(120, 'El nombre no puede exceder 120 caracteres')
+    .optional()
+    .or(z.literal('')),
+  nombreMadre: z
+    .string()
+    .max(120, 'El nombre no puede exceder 120 caracteres')
+    .optional()
+    .or(z.literal('')),
+  pareja: z
+    .string()
+    .max(120, 'El nombre no puede exceder 120 caracteres')
+    .optional()
+    .or(z.literal('')),
+  sexo: z
+    .string()
+    .max(50, 'El sexo no puede exceder 50 caracteres')
+    .optional()
+    .or(z.literal('')),
 });
 
 export const sesionSchema = z.object({
@@ -40,13 +65,17 @@ export const sesionSchema = z.object({
     .string()
     .min(10, 'Las notas clínicas deben tener al menos 10 caracteres')
     .max(5000, 'Las notas clínicas no pueden exceder 5000 caracteres'),
-  proximaCita: z
+});
+
+export const citaSchema = z.object({
+  pacienteId: z.string().uuid('ID de paciente inválido'),
+  fechaCita: z
     .string()
-    .refine((date) => !date || !isNaN(Date.parse(date)), 'Fecha inválida')
-    .refine((date) => !date || new Date(date) > new Date(), 'La próxima cita debe ser futura')
-    .optional()
-    .or(z.literal('')),
+    .min(1, 'La fecha de la cita es obligatoria')
+    .refine((date) => !isNaN(Date.parse(date)), 'Fecha inválida')
+    .refine((date) => new Date(date) > new Date(), 'La cita debe ser futura'),
 });
 
 export type PacienteFormData = z.infer<typeof pacienteSchema>;
 export type SesionFormData = z.infer<typeof sesionSchema>;
+export type CitaFormData = z.infer<typeof citaSchema>;
