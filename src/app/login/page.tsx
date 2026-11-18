@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { Suspense, useState, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === '1';
@@ -195,5 +195,30 @@ export default function LoginPage() {
         </div>
       </form>
     </main>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <main className="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-[400px]">
+        <div className="card p-6 sm:p-8 relative overflow-hidden animate-pulse">
+          <div className="h-12 w-12 rounded-xl bg-bg-tertiary mx-auto mb-4" />
+          <div className="h-8 w-48 rounded bg-bg-tertiary mx-auto mb-2" />
+          <div className="h-5 w-36 rounded bg-bg-tertiary mx-auto mb-8" />
+          <div className="h-11 rounded-lg bg-bg-tertiary mb-4" />
+          <div className="h-11 rounded-lg bg-bg-tertiary mb-6" />
+          <div className="h-12 rounded-lg bg-bg-tertiary" />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
   );
 }
