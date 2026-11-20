@@ -12,17 +12,49 @@
 
 # testing
 /coverage
+*.lcov
+.nyc_output/
 
 # next.js
 /.next/
 /out/
+/.next/cache/
 
 # production
 /build
+/dist/
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+*.log
+.cache/
+.eslintcache
+
+# editor files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# environment variables
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# local databases and generated caches
+prisma/*.db
+prisma/*.db-journal
+*.tsbuildinfo
 
 # debug
 npm-debug.log*
@@ -30,12 +62,5 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
 # vercel
 .vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
