@@ -53,7 +53,8 @@ function PacientesList({ initialData }: PacientesListProps) {
     );
   }
 
-  function calcularEdad(fechaNacimiento: Date): number {
+  function calcularEdad(fechaNacimiento: Date | null): number | null {
+    if (!fechaNacimiento) return null;
     const hoy = new Date();
     const nacimiento = new Date(fechaNacimiento);
     let edad = hoy.getFullYear() - nacimiento.getFullYear();
@@ -90,7 +91,11 @@ function PacientesList({ initialData }: PacientesListProps) {
                   {paciente.nombreCompleto}
                 </h3>
                 <p className="text-text-secondary text-sm mt-1 flex items-center gap-1.5">
-                  <span aria-hidden="true">{calcularEdad(paciente.fechaNacimiento)} años</span>
+                  <span aria-hidden="true">
+                    {calcularEdad(paciente.fechaNacimiento) !== null
+                      ? `${calcularEdad(paciente.fechaNacimiento)} años`
+                      : 'Edad no registrada'}
+                  </span>
                   <span className="text-text-muted">•</span>
                   <span>Paciente desde {formatearMesAnio(paciente.createdAt)}</span>
                 </p>

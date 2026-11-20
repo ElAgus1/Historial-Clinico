@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, FileText, Calendar, ChevronDown, ChevronUp, Clock, Phone, Edit, Trash2, AlertCircle, Plus, X, Instagram, Heart, User } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, Calendar, ChevronDown, ChevronUp, Clock, Phone, Edit, Trash2, AlertCircle, Plus, X, Heart, User, MapPin, Briefcase, Church } from 'lucide-react';
 import Link from 'next/link';
 import { actualizarPaciente, agregarCita, actualizarCita, agregarSesion, actualizarSesion, archivarPaciente, eliminarCita, eliminarSesion } from '@/app/actions';
 import { citaSchema, pacienteSchema, sesionSchema, type CitaFormData, type PacienteFormData, type SesionFormData } from '@/lib/schemas';
@@ -13,17 +13,21 @@ import { es } from 'date-fns/locale';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { HistoriaClinicaTab } from '@/components/HistoriaClinicaTab';
 
 interface Paciente {
   id: string;
   nombreCompleto: string;
-  fechaNacimiento: Date | string;
+  fechaNacimiento: Date | string | null;
+  lugarNacimiento: string | null;
+  lugarResidencia: string | null;
+  profesion: string | null;
+  religion: string | null;
   telefono: string | null;
   motivoConsulta: string | null;
-  instagram: string | null;
   nombrePadre: string | null;
   nombreMadre: string | null;
-  pareja: string | null;
+  estadoCivil: string | null;
   sexo: string | null;
   createdAt: Date | string;
   sesiones: Array<{
@@ -37,6 +41,12 @@ interface Paciente {
     fechaCita: Date | string;
     createdAt: Date | string;
   }>;
+  anamnesis: {
+    antecedentesPropios: string | null;
+    antecedentesFamiliares: string | null;
+    genogramaPath: string | null;
+    historiaVital: unknown;
+  } | null;
 }
 
 interface DetallePacienteProps {
@@ -60,6 +70,7 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
   const [isEditingPatient, setIsEditingPatient] = useState(false);
   const [isPatientSaving, setIsPatientSaving] = useState(false);
   const [patientEditError, setPatientEditError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'evoluciones' | 'historia'>('evoluciones');
 
   const patientEditForm = useForm<PacienteFormData>({
     resolver: zodResolver(pacienteSchema),
@@ -99,11 +110,12 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
 
   const notasClinicas = useWatch({ control, name: 'notasClinicas' }) ?? '';
   const today = new Date().toISOString().split('T')[0];
-  const fechaNacimiento = typeof paciente.fechaNacimiento === 'string'
-    ? parseISO(paciente.fechaNacimiento)
-    : paciente.fechaNacimiento;
+  const fechaNacimiento = paciente.fechaNacimiento
+    ? (typeof paciente.fechaNacimiento === 'string' ? parseISO(paciente.fechaNacimiento) : paciente.fechaNacimiento)
+    : null;
 
-  function calcularEdad(fechaNac: Date): number {
+  function calcularEdad(fechaNac: Date | null): number | null {
+    if (!fechaNac) return null;
     const hoy = new Date();
     let edad = hoy.getFullYear() - fechaNac.getFullYear();
     const mes = hoy.getMonth() - fechaNac.getMonth();
@@ -158,14 +170,19 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
     setPatientEditError(null);
     patientEditForm.reset({
       nombreCompleto: paciente.nombreCompleto,
-      fechaNacimiento: (typeof paciente.fechaNacimiento === 'string' ? parseISO(paciente.fechaNacimiento) : paciente.fechaNacimiento).toISOString().split('T')[0],
+      fechaNacimiento: paciente.fechaNacimiento
+        ? (typeof paciente.fechaNacimiento === 'string' ? parseISO(paciente.fechaNacimiento) : paciente.fechaNacimiento).toISOString().split('T')[0]
+        : '',
       telefono: paciente.telefono ?? '',
       motivoConsulta: paciente.motivoConsulta ?? '',
-      instagram: paciente.instagram ?? '',
       nombrePadre: paciente.nombrePadre ?? '',
       nombreMadre: paciente.nombreMadre ?? '',
-      pareja: paciente.pareja ?? '',
+      estadoCivil: paciente.estadoCivil ?? '',
       sexo: paciente.sexo ?? '',
+      lugarNacimiento: paciente.lugarNacimiento ?? '',
+      lugarResidencia: paciente.lugarResidencia ?? '',
+      profesion: paciente.profesion ?? '',
+      religion: paciente.religion ?? '',
     });
   }
 
@@ -324,13 +341,28 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
             <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-text-secondary">
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" aria-hidden="true" />
-                {calcularEdad(fechaNacimiento)} años
+                {calcularEdad(fechaNacimiento) !== null ? `${calcularEdad(fechaNacimiento)} años` : 'Edad no registrada'}
               </span>
               {paciente.telefono && (
                 <span className="flex items-center gap-1">
                   <Phone className="h-4 w-4" aria-hidden="true" />
                   {paciente.telefono}
                 </span>
+              )}
+              {paciente.lugarNacimiento && (
+                <span>Nació en {paciente.lugarNacimiento}</span>
+              )}
+              {paciente.lugarResidencia && (
+                <span>Reside en {paciente.lugarResidencia}</span>
+              )}
+              {paciente.profesion && (
+                <span>{paciente.profesion}</span>
+              )}
+              {paciente.religion && (
+                <span>{paciente.religion}</span>
+              )}
+              {paciente.motivoConsulta && (
+                <span className="w-full sm:w-auto"><strong>Motivo:</strong> {paciente.motivoConsulta}</span>
               )}
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" aria-hidden="true" />
@@ -437,17 +469,6 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                   </div>
                 </div>
               )}
-              {paciente.instagram && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
-                    <Instagram className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium text-text-muted">Instagram</dt>
-                    <dd className="text-text-primary">{paciente.instagram}</dd>
-                  </div>
-                </div>
-              )}
               {paciente.nombrePadre && (
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
@@ -470,14 +491,14 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                   </div>
                 </div>
               )}
-              {paciente.pareja && (
+              {paciente.estadoCivil && (
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
                     <Heart className="h-4 w-4 text-brand-600 dark:text-brand-400" />
                   </div>
                   <div>
-                    <dt className="text-xs font-medium text-text-muted">Pareja</dt>
-                    <dd className="text-text-primary">{paciente.pareja}</dd>
+                    <dt className="text-xs font-medium text-text-muted">Estado civil</dt>
+                    <dd className="text-text-primary">{paciente.estadoCivil}</dd>
                   </div>
                 </div>
               )}
@@ -487,9 +508,57 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                 </div>
                 <div>
                   <dt className="text-xs font-medium text-text-muted">Fecha de nacimiento</dt>
-                  <dd className="text-text-primary">{formatearFechaCorta(paciente.fechaNacimiento)} ({calcularEdad(fechaNacimiento)} años)</dd>
+                  <dd className="text-text-primary">
+                    {paciente.fechaNacimiento
+                      ? `${formatearFechaCorta(paciente.fechaNacimiento)}${calcularEdad(fechaNacimiento) !== null ? ` (${calcularEdad(fechaNacimiento)} años)` : ''}`
+                      : 'No registrada'}
+                  </dd>
                 </div>
               </div>
+              {paciente.lugarNacimiento && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
+                    <MapPin className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-text-muted">Lugar de nacimiento</dt>
+                    <dd className="text-text-primary">{paciente.lugarNacimiento}</dd>
+                  </div>
+                </div>
+              )}
+              {paciente.lugarResidencia && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
+                    <MapPin className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-text-muted">Residencia actual</dt>
+                    <dd className="text-text-primary">{paciente.lugarResidencia}</dd>
+                  </div>
+                </div>
+              )}
+              {paciente.profesion && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
+                    <Briefcase className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-text-muted">Profesión / trabajo</dt>
+                    <dd className="text-text-primary">{paciente.profesion}</dd>
+                  </div>
+                </div>
+              )}
+              {paciente.religion && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
+                    <Church className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-text-muted">Religión</dt>
+                    <dd className="text-text-primary">{paciente.religion}</dd>
+                  </div>
+                </div>
+              )}
               {paciente.motivoConsulta && (
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center" aria-hidden="true">
@@ -559,6 +628,24 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
         </aside>
 
         <main className="space-y-6" aria-label="Historial clínico">
+          <nav className="card p-1.5 flex items-center gap-1" aria-label="Secciones del paciente">
+            <button
+              type="button"
+              onClick={() => setActiveTab('evoluciones')}
+              className={`btn-sm flex-1 ${activeTab === 'evoluciones' ? 'btn-primary' : 'btn-ghost'}`}
+              aria-pressed={activeTab === 'evoluciones'}
+            >
+              Evoluciones
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('historia')}
+              className={`btn-sm flex-1 ${activeTab === 'historia' ? 'btn-primary' : 'btn-ghost'}`}
+              aria-pressed={activeTab === 'historia'}
+            >
+              Historia Clínica
+            </button>
+          </nav>
           {isEditingPatient ? (
             <section className="card p-5 sm:p-6" aria-labelledby="editar-paciente-heading">
               <div className="flex items-center justify-between mb-5">
@@ -581,7 +668,7 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                     {patientEditForm.formState.errors.nombreCompleto && <p className="field-error">{patientEditForm.formState.errors.nombreCompleto.message}</p>}
                   </div>
                   <div className="form-group">
-                    <label htmlFor="edit-fechaNacimiento" className="label">Fecha de nacimiento *</label>
+                    <label htmlFor="edit-fechaNacimiento" className="label">Fecha de nacimiento</label>
                     <input {...patientEditForm.register('fechaNacimiento')} id="edit-fechaNacimiento" type="date" max={today} className="input" disabled={isPatientSaving} />
                     {patientEditForm.formState.errors.fechaNacimiento && <p className="field-error">{patientEditForm.formState.errors.fechaNacimiento.message}</p>}
                   </div>
@@ -604,12 +691,17 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="form-group">
-                    <label htmlFor="edit-instagram" className="label">Instagram</label>
-                    <input {...patientEditForm.register('instagram')} id="edit-instagram" className="input" placeholder="@usuario" disabled={isPatientSaving} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="edit-pareja" className="label">Pareja</label>
-                    <input {...patientEditForm.register('pareja')} id="edit-pareja" className="input" disabled={isPatientSaving} />
+                    <label htmlFor="edit-estadoCivil" className="label">Estado civil</label>
+                    <select {...patientEditForm.register('estadoCivil')} id="edit-estadoCivil" className="input" disabled={isPatientSaving}>
+                      <option value="">Sin especificar</option>
+                      <option value="Soltero/a">Soltero/a</option>
+                      <option value="Casado/a">Casado/a</option>
+                      <option value="Unión convivencial">Unión convivencial</option>
+                      <option value="Separado/a">Separado/a</option>
+                      <option value="Divorciado/a">Divorciado/a</option>
+                      <option value="Viudo/a">Viudo/a</option>
+                      <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                    </select>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -620,6 +712,26 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                   <div className="form-group">
                     <label htmlFor="edit-nombreMadre" className="label">Nombre de la madre</label>
                     <input {...patientEditForm.register('nombreMadre')} id="edit-nombreMadre" className="input" disabled={isPatientSaving} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="form-group">
+                    <label htmlFor="edit-lugarNacimiento" className="label">Lugar de nacimiento</label>
+                    <input {...patientEditForm.register('lugarNacimiento')} id="edit-lugarNacimiento" className="input" disabled={isPatientSaving} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="edit-lugarResidencia" className="label">Residencia actual</label>
+                    <input {...patientEditForm.register('lugarResidencia')} id="edit-lugarResidencia" className="input" disabled={isPatientSaving} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="form-group">
+                    <label htmlFor="edit-profesion" className="label">Profesión / trabajo</label>
+                    <input {...patientEditForm.register('profesion')} id="edit-profesion" className="input" disabled={isPatientSaving} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="edit-religion" className="label">Religión</label>
+                    <input {...patientEditForm.register('religion')} id="edit-religion" className="input" disabled={isPatientSaving} />
                   </div>
                 </div>
                 <div className="form-group">
@@ -635,7 +747,7 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
                 </div>
               </form>
             </section>
-          ) : (
+          ) : activeTab === 'evoluciones' ? (
           <section className="card p-5 sm:p-6" aria-labelledby="nueva-sesion-heading">
             <h2 id="nueva-sesion-heading" className="text-lg font-semibold text-text-primary mb-5 flex items-center gap-2">
               <FileText className="h-5 w-5 text-brand-600 dark:text-brand-400" aria-hidden="true" />
@@ -699,9 +811,11 @@ export function DetallePaciente({ paciente }: DetallePacienteProps) {
               </button>
             </form>
           </section>
+          ) : (
+            <HistoriaClinicaTab pacienteId={paciente.id} anamnesis={paciente.anamnesis} />
           )}
 
-          {!isEditingPatient && (
+          {!isEditingPatient && activeTab === 'evoluciones' && (
           <section aria-labelledby="historial-heading">
             <div className="flex items-center justify-between mb-4">
               <h2 id="historial-heading" className="text-lg font-semibold text-text-primary flex items-center gap-2">

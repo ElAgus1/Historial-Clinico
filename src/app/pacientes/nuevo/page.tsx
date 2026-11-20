@@ -25,12 +25,15 @@ export default function NuevoPacientePage() {
     defaultValues: {
       nombreCompleto: '',
       fechaNacimiento: '',
+      lugarNacimiento: '',
+      lugarResidencia: '',
+      profesion: '',
+      religion: '',
       telefono: '',
       motivoConsulta: '',
-      instagram: '',
       nombrePadre: '',
       nombreMadre: '',
-      pareja: '',
+      estadoCivil: '',
       sexo: '',
     },
   });
@@ -44,7 +47,7 @@ export default function NuevoPacientePage() {
       if (value.trim().length > 100) return 'Máximo 100 caracteres';
     }
     if (name === 'fechaNacimiento') {
-      if (!value) return 'La fecha de nacimiento es obligatoria';
+      if (!value) return null;
       const fecha = new Date(value);
       const hoy = new Date();
       if (fecha > hoy) return 'La fecha no puede ser futura';
@@ -65,7 +68,7 @@ export default function NuevoPacientePage() {
     setServerError(null);
 
     const nombreError = validateField('nombreCompleto', data.nombreCompleto);
-    const fechaError = validateField('fechaNacimiento', data.fechaNacimiento);
+    const fechaError = validateField('fechaNacimiento', data.fechaNacimiento ?? '');
     const telefonoError = validateField('telefono', data.telefono ?? '');
     const motivoError = validateField('motivoConsulta', data.motivoConsulta ?? '');
 
@@ -178,7 +181,7 @@ export default function NuevoPacientePage() {
               <div className="form-group">
                 <label htmlFor="fechaNacimiento" className="label flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-text-muted" aria-hidden="true" />
-                  Fecha de nacimiento <span className="text-error-text" aria-hidden="true">*</span>
+                  Fecha de nacimiento
                 </label>
                 <input
                   {...register('fechaNacimiento')}
@@ -196,6 +199,28 @@ export default function NuevoPacientePage() {
                     {getErrorMessage('fechaNacimiento')}
                   </p>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label htmlFor="lugarNacimiento" className="label">Lugar de nacimiento</label>
+                  <input {...register('lugarNacimiento')} id="lugarNacimiento" type="text" placeholder="Ciudad, provincia" className="input" disabled={isSubmitting} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="lugarResidencia" className="label">Lugar de residencia</label>
+                  <input {...register('lugarResidencia')} id="lugarResidencia" type="text" placeholder="Dirección o localidad" className="input" disabled={isSubmitting} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label htmlFor="profesion" className="label">Profesión / trabajo</label>
+                  <input {...register('profesion')} id="profesion" type="text" placeholder="Profesión u ocupación" className="input" disabled={isSubmitting} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="religion" className="label">Religión</label>
+                  <input {...register('religion')} id="religion" type="text" placeholder="Religión" className="input" disabled={isSubmitting} />
+                </div>
               </div>
 
               <div className="form-group">
@@ -236,13 +261,17 @@ export default function NuevoPacientePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-group">
-                  <label htmlFor="instagram" className="label">Instagram</label>
-                  <input {...register('instagram')} id="instagram" type="text" placeholder="@usuario" className="input" disabled={isSubmitting} />
-                  <p className="field-hint">Opcional</p>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="pareja" className="label">Pareja</label>
-                  <input {...register('pareja')} id="pareja" type="text" placeholder="Nombre de la pareja" className="input" disabled={isSubmitting} />
+                  <label htmlFor="estadoCivil" className="label">Estado civil</label>
+                  <select {...register('estadoCivil')} id="estadoCivil" className="input" disabled={isSubmitting}>
+                    <option value="">Sin especificar</option>
+                    <option value="Soltero/a">Soltero/a</option>
+                    <option value="Casado/a">Casado/a</option>
+                    <option value="Unión convivencial">Unión convivencial</option>
+                    <option value="Separado/a">Separado/a</option>
+                    <option value="Divorciado/a">Divorciado/a</option>
+                    <option value="Viudo/a">Viudo/a</option>
+                    <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                  </select>
                   <p className="field-hint">Opcional</p>
                 </div>
               </div>

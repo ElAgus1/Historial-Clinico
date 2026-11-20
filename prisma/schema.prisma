@@ -10,27 +10,45 @@ datasource db {
 }
 
 model Paciente {
-  id              String   @id @default(uuid())
+  id              String     @id @default(uuid())
   userId          String?
   nombreCompleto  String
-  fechaNacimiento DateTime
+  fechaNacimiento DateTime?
+  lugarNacimiento String?
+  lugarResidencia String?
+  profesion       String?
+  religion        String?
   telefono        String?
-  motivoConsulta  String?
-  instagram       String?
+  motivoConsulta  String?    @db.Text
   nombrePadre     String?
   nombreMadre     String?
-  pareja          String?
+  estadoCivil     String?
   sexo            String?
-  archivado       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  archivado       Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
   sesiones        Sesion[]
   citas           Cita[]
+  anamnesis       Anamnesis?
 
   @@index([nombreCompleto])
   @@index([createdAt])
   @@index([userId])
   @@index([userId, archivado])
+}
+
+model Anamnesis {
+  id                     String   @id @default(uuid())
+  pacienteId             String   @unique
+  antecedentesPropios    String?  @db.Text
+  antecedentesFamiliares String?  @db.Text
+  genogramaPath          String?
+  historiaVital          Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  paciente               Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@index([pacienteId])
 }
 
 model Sesion {

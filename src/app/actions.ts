@@ -3,9 +3,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/supabase/auth';
-import { citaSchema, pacienteSchema, sesionSchema, type CitaFormData, type PacienteFormData, type SesionFormData } from '@/lib/schemas';
+import { anamnesisSchema, citaSchema, pacienteSchema, sesionSchema, type AnamnesisFormData, type CitaFormData, type PacienteFormData, type SesionFormData } from '@/lib/schemas';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 type ActionResult<T> =
   | { success: true; data: T }
@@ -38,13 +40,16 @@ export async function crearPaciente(formData: PacienteFormData): Promise<ActionR
       data: {
         userId: user.id,
         nombreCompleto: validated.data.nombreCompleto.trim(),
-        fechaNacimiento: new Date(validated.data.fechaNacimiento),
+        fechaNacimiento: validated.data.fechaNacimiento ? new Date(validated.data.fechaNacimiento) : null,
+        lugarNacimiento: validated.data.lugarNacimiento?.trim() || null,
+        lugarResidencia: validated.data.lugarResidencia?.trim() || null,
+        profesion: validated.data.profesion?.trim() || null,
+        religion: validated.data.religion?.trim() || null,
         telefono: validated.data.telefono?.trim() || null,
         motivoConsulta: validated.data.motivoConsulta?.trim() || null,
-        instagram: validated.data.instagram?.trim() || null,
         nombrePadre: validated.data.nombrePadre?.trim() || null,
         nombreMadre: validated.data.nombreMadre?.trim() || null,
-        pareja: validated.data.pareja?.trim() || null,
+        estadoCivil: validated.data.estadoCivil?.trim() || null,
         sexo: validated.data.sexo?.trim() || null,
       },
       select: { id: true },
@@ -53,8 +58,15 @@ export async function crearPaciente(formData: PacienteFormData): Promise<ActionR
     revalidatePath('/pacientes');
     return { success: true, data: { id: paciente.id } };
   } catch (err) {
-    console.error('Error al crear paciente:', err);
-    return { success: false, error: 'No se pudo crear el paciente. Intente nuevamente.' };
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      if (err.code === 'P2022') {
+        return { success: false, error: 'La base de datos no tiene una columna requerida. Recargá la aplicación e intentá nuevamente.' };
+      }
+      if (err.code === 'P2002') {
+        return { success: false, error: 'Ya existe un paciente con esos datos.' };
+      }
+    }
+    return { success: false, error: 'No se pudo crear el paciente. Verificá los datos e intentá nuevamente.' };
   }
 }
 
@@ -76,13 +88,16 @@ export async function actualizarPaciente(formData: PacienteFormData & { id: stri
       where: { id: paciente.id },
       data: {
         nombreCompleto: validated.data.nombreCompleto.trim(),
-        fechaNacimiento: new Date(validated.data.fechaNacimiento),
+        fechaNacimiento: validated.data.fechaNacimiento ? new Date(validated.data.fechaNacimiento) : null,
+        lugarNacimiento: validated.data.lugarNacimiento?.trim() || null,
+        lugarResidencia: validated.data.lugarResidencia?.trim() || null,
+        profesion: validated.data.profesion?.trim() || null,
+        religion: validated.data.religion?.trim() || null,
         telefono: validated.data.telefono?.trim() || null,
         motivoConsulta: validated.data.motivoConsulta?.trim() || null,
-        instagram: validated.data.instagram?.trim() || null,
         nombrePadre: validated.data.nombrePadre?.trim() || null,
         nombreMadre: validated.data.nombreMadre?.trim() || null,
-        pareja: validated.data.pareja?.trim() || null,
+        estadoCivil: validated.data.estadoCivil?.trim() || null,
         sexo: validated.data.sexo?.trim() || null,
       },
     });
@@ -95,10 +110,161 @@ export async function actualizarPaciente(formData: PacienteFormData & { id: stri
   }
 }
 
+export async function actualizarDatosPaciente(pacienteId: string, data: PacienteFormData): Promise<ActionResult<null>> {
+    return actualizarPaciente({ ...data, id: pacienteId });
+}
+
+  export async function guardarAnamnesis(pacienteId: string, data: AnamnesisFormData): Promise<ActionResult<null>> {
+    if (!z.string().uuid().safeParse(pacienteId).success) {
+      return { success: false, error: 'ID de paciente inválido.' };
+    }
+
+    const validated = anamnesisSchema.safeParse(data);
+    if (!validated.success) return { success: false, ...handleZodError(validated.error) };
+
+    const user = await getAuthenticatedUser();
+    if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+    try {
+      const paciente = await prisma.paciente.findFirst({
+        where: { id: pacienteId, userId: user.id },
+        select: { id: true },
+      });
+      if (!paciente) return { success: false, error: 'Paciente no encontrado.' };
+
+      await prisma.anamnesis.upsert({
+        where: { pacienteId: paciente.id },
+        create: {
+          pacienteId: paciente.id,
+          antecedentesPropios: validated.data.antecedentesPropios?.trim() || null,
+          antecedentesFamiliares: validated.data.antecedentesFamiliares?.trim() || null,
+          historiaVital: validated.data.historiaVital,
+        },
+        update: {
+          antecedentesPropios: validated.data.antecedentesPropios?.trim() || null,
+          antecedentesFamiliares: validated.data.antecedentesFamiliares?.trim() || null,
+          historiaVital: validated.data.historiaVital,
+        },
+      });
+      revalidatePath(`/pacientes/${paciente.id}`);
+      revalidatePath('/pacientes');
+      return { success: true, data: null };
+    } catch {
+      console.error('Error al guardar la historia clínica');
+      return { success: false, error: 'No se pudo guardar la historia clínica. Intente nuevamente.' };
+    }
+  }
+
+  export async function subirGenograma(pacienteId: string, formData: FormData): Promise<ActionResult<{ path: string }>> {
+    if (!z.string().uuid().safeParse(pacienteId).success) {
+      return { success: false, error: 'ID de paciente inválido.' };
+    }
+
+    const user = await getAuthenticatedUser();
+    if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+    const file = formData.get('file');
+    if (!(file instanceof File)) return { success: false, error: 'Seleccione una imagen válida.' };
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      return { success: false, error: 'Solo se permiten imágenes JPG, PNG o WebP.' };
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return { success: false, error: 'La imagen no puede superar 10 MB.' };
+    }
+
+    try {
+      const paciente = await prisma.paciente.findFirst({
+        where: { id: pacienteId, userId: user.id },
+        select: { id: true, anamnesis: { select: { genogramaPath: true } } },
+      });
+      if (!paciente) return { success: false, error: 'Paciente no encontrado.' };
+
+      const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${paciente.id}/genograma.${extension}`;
+      const supabase = await createSupabaseServerClient();
+
+      if (paciente.anamnesis?.genogramaPath && paciente.anamnesis.genogramaPath !== path) {
+        await supabase.storage.from('genogramas').remove([paciente.anamnesis.genogramaPath]);
+      }
+
+      const { error: uploadError } = await supabase.storage.from('genogramas').upload(path, await file.arrayBuffer(), {
+        contentType: file.type,
+        upsert: true,
+        cacheControl: '3600',
+      });
+      if (uploadError) return { success: false, error: 'No se pudo subir el genograma.' };
+
+      await prisma.anamnesis.upsert({
+        where: { pacienteId: paciente.id },
+        create: { pacienteId: paciente.id, genogramaPath: path },
+        update: { genogramaPath: path },
+      });
+      revalidatePath(`/pacientes/${paciente.id}`);
+      return { success: true, data: { path } };
+    } catch {
+      console.error('Error al subir el genograma');
+      return { success: false, error: 'No se pudo subir el genograma. Intente nuevamente.' };
+    }
+  }
+
+  export async function obtenerUrlGenograma(pacienteId: string): Promise<ActionResult<{ url: string | null }>> {
+    if (!z.string().uuid().safeParse(pacienteId).success) {
+      return { success: false, error: 'ID de paciente inválido.' };
+    }
+    const user = await getAuthenticatedUser();
+    if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+    try {
+      const anamnesis = await prisma.anamnesis.findFirst({
+        where: { pacienteId, paciente: { userId: user.id } },
+        select: { genogramaPath: true },
+      });
+      if (!anamnesis?.genogramaPath) return { success: true, data: { url: null } };
+
+      const supabase = await createSupabaseServerClient();
+      const { data, error } = await supabase.storage
+        .from('genogramas')
+        .createSignedUrl(anamnesis.genogramaPath, 600);
+      if (error || !data?.signedUrl) return { success: false, error: 'No se pudo generar la vista del genograma.' };
+      return { success: true, data: { url: data.signedUrl } };
+    } catch {
+      console.error('Error al obtener el genograma');
+      return { success: false, error: 'No se pudo cargar el genograma.' };
+    }
+  }
+
+  export async function eliminarGenograma(pacienteId: string): Promise<ActionResult<null>> {
+    if (!z.string().uuid().safeParse(pacienteId).success) {
+      return { success: false, error: 'ID de paciente inválido.' };
+    }
+    const user = await getAuthenticatedUser();
+    if (!user) return { success: false, error: 'Sesión expirada. Inicie sesión nuevamente.' };
+
+    try {
+      const anamnesis = await prisma.anamnesis.findFirst({
+        where: { pacienteId, paciente: { userId: user.id } },
+        select: { genogramaPath: true },
+      });
+      if (!anamnesis?.genogramaPath) return { success: true, data: null };
+
+      const supabase = await createSupabaseServerClient();
+      await supabase.storage.from('genogramas').remove([anamnesis.genogramaPath]);
+      await prisma.anamnesis.update({
+        where: { pacienteId },
+        data: { genogramaPath: null },
+      });
+      revalidatePath(`/pacientes/${pacienteId}`);
+      return { success: true, data: null };
+    } catch {
+      console.error('Error al eliminar el genograma');
+      return { success: false, error: 'No se pudo eliminar el genograma.' };
+    }
+  }
+
 export async function obtenerPacientes(status: 'active' | 'archived' | 'all' = 'active'): Promise<ActionResult<Array<{
   id: string;
   nombreCompleto: string;
-  fechaNacimiento: Date;
+  fechaNacimiento: Date | null;
   telefono: string | null;
   motivoConsulta: string | null;
   archivado: boolean;
@@ -120,6 +286,10 @@ export async function obtenerPacientes(status: 'active' | 'archived' | 'all' = '
         id: true,
         nombreCompleto: true,
         fechaNacimiento: true,
+        lugarNacimiento: true,
+        lugarResidencia: true,
+        profesion: true,
+        religion: true,
         telefono: true,
         motivoConsulta: true,
         archivado: true,
@@ -168,15 +338,24 @@ export async function archivarPaciente(id: string): Promise<ActionResult<null>> 
 export async function obtenerPacientePorId(id: string): Promise<ActionResult<{
   id: string;
   nombreCompleto: string;
-  fechaNacimiento: Date;
+  fechaNacimiento: Date | null;
+  lugarNacimiento: string | null;
+  lugarResidencia: string | null;
+  profesion: string | null;
+  religion: string | null;
   telefono: string | null;
   motivoConsulta: string | null;
-  instagram: string | null;
   nombrePadre: string | null;
   nombreMadre: string | null;
-  pareja: string | null;
+  estadoCivil: string | null;
   sexo: string | null;
   createdAt: Date;
+  anamnesis: {
+    antecedentesPropios: string | null;
+    antecedentesFamiliares: string | null;
+    genogramaPath: string | null;
+    historiaVital: unknown;
+  } | null;
   sesiones: Array<{
     id: string;
     fechaSesion: Date;
@@ -203,14 +382,25 @@ export async function obtenerPacientePorId(id: string): Promise<ActionResult<{
         id: true,
         nombreCompleto: true,
         fechaNacimiento: true,
+        lugarNacimiento: true,
+        lugarResidencia: true,
+        profesion: true,
+        religion: true,
         telefono: true,
         motivoConsulta: true,
-        instagram: true,
         nombrePadre: true,
         nombreMadre: true,
-        pareja: true,
+        estadoCivil: true,
         sexo: true,
         createdAt: true,
+        anamnesis: {
+          select: {
+            antecedentesPropios: true,
+            antecedentesFamiliares: true,
+            genogramaPath: true,
+            historiaVital: true,
+          },
+        },
         sesiones: {
           orderBy: { fechaSesion: 'desc' },
           select: {
